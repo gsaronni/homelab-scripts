@@ -104,8 +104,6 @@ declare -A PAK_CHARACTERS=(
     ["GAME27.PAK"]="Save Slot 27 - Lucrezia Vampiress Ancaria Silver"
 )
 
-# NEED TO IMPLEMENT SOMETHING IN ORDER TO SKIP USELESS CHECKS LIKE COOP NICK FE EDO AND AZZERATA !!!!!!!!
-
 # ==============================================
 # LOGGING FUNCTIONS
 # ==============================================
