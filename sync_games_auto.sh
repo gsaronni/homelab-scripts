@@ -91,7 +91,7 @@ readonly BACKUP_RETENTION=3
 # Rsync configuration
 readonly RSYNC_CMD="rsync"
 readonly RSYNC_OPTS="--log-file=${LOG_FILE}" 
-readonly RSYNC_FLAGS="-avhiPm${DRY_RUN:+n}"
+readonly RSYNC_FLAGS="-avhiPm$([[ "$DRY_RUN" == "true" ]] && echo "n")"
 
 # ==============================================
 # LOGGING FUNCTIONS
@@ -150,6 +150,12 @@ check_dependencies() {
     log_error "bc is required but not installed."
     log_error "Install with: sudo apt-get install bc"
     error_exit "Missing dependency: bc"
+  fi
+
+  if ! command -v 7z &> /dev/null; then
+    log_error "7z is required but not installed."
+    log_error "Install with: sudo apt-get install p7zip-full"
+    error_exit "Missing dependency: 7z"
   fi
 }
 
@@ -247,20 +253,20 @@ create_backup() {
   local game_name="$2"
   local timestamp=$(date '+%Y%m%d.%H%M%S')
   local backup_dir="${BACKUP_DIR}/${game_name}"
-  local backup_file="${backup_dir}/backup_${timestamp}.tar.gz"
+  local backup_folder="${backup_dir}/backup_${timestamp}"
   
   mkdir -p "$backup_dir"
   
   if [ -d "$save_path" ] && [ "$(find "$save_path" -type f | head -1)" ]; then
-    tar -czf "$backup_file" -C "$(dirname "$save_path")" "$(basename "$save_path")" 2>/dev/null
-    log_info "Created backup: ${backup_file}"
+    cp -r "$save_path" "$backup_folder"
+    log_info "Created backup: ${backup_folder}"
     
     # Clean up old backups
-    local backups=($(find "$backup_dir" -name "backup_*.tar.gz" -printf '%T@ %p\n' | sort -n | cut -d' ' -f2-))
+    local backups=($(find "$backup_dir" -maxdepth 1 -type d -name "backup_*" -printf '%T@ %p\n' | sort -n | cut -d' ' -f2-))
     if [ ${#backups[@]} -gt $BACKUP_RETENTION ]; then
       local to_delete=$((${#backups[@]} - BACKUP_RETENTION))
       for ((i=0; i<to_delete; i++)); do
-        rm -f "${backups[$i]}"
+        rm -rf "${backups[$i]}"
         log_info "Removed old backup: $(basename "${backups[$i]}")"
       done
     fi

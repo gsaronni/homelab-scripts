@@ -52,7 +52,7 @@ readonly BACKUP_RETENTION=3  # Keep versions per file
 # Rsync configuration
 readonly RSYNC_CMD="rsync"
 readonly RSYNC_OPTS="--log-file=${LOG_FILE}" 
-readonly RSYNC_FLAGS="-avhiPm${DRY_RUN:+n}"  # Adds 'n' if DRY_RUN is true
+readonly RSYNC_FLAGS="-avhiPm$([[ "$DRY_RUN" == "true" ]] && echo "n")"
 
 # Skip list for files that should not be synced (farming zones, etc.)
 readonly SKIP_PATTERNS=("*coop*" "*Coop*" "*azzerata*" "*Azzerata*" "*AZZERATA*")
