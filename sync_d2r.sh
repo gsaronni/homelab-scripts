@@ -1,8 +1,8 @@
 #!/bin/bash
-# Sacred Gold Save Game Sync Script
-# Version: 1.1
-# Date: 20250829
-# Description: Synchronizes Sacred Gold save games between local and remote servers
+# Diablo II Resurrected Save Game Sync Script
+# Version: 1.0
+# Date: 20250928
+# Description: Synchronizes Diablo II Resurrected save games between local and remote servers
 # Supports granular per-file syncing for multi-character gaming across machines
 
 # Set strict error handling
@@ -30,20 +30,20 @@ done
 
 # Script metadata
 readonly SCRIPT_NAME="$(basename "$0")"
-readonly SCRIPT_VERSION="v1.1"
-readonly SCRIPT_DATE="20250829"
+readonly SCRIPT_VERSION="v1.0"
+readonly SCRIPT_DATE="20250928"
 
 # Remote server configuration
 readonly REMOTE_HOST="zimacopy"
 readonly REMOTE_IP="192.168.1.212"
 
-# Hardcoded paths for Sacred Gold
-readonly LOCAL_SAVE_PATH="/mnt/d/vdg/GOG/Sacred Gold/save/"
-readonly REMOTE_SAVE_PATH="/mnt/luoyang/bck/zimablade/svgm/sacredRebornHD"
+# Hardcoded paths for Diablo II Resurrected
+readonly LOCAL_SAVE_PATH="/mnt/c/Users/greintek/Saved Games/Diablo II Resurrected/"
+readonly REMOTE_SAVE_PATH="/mnt/luoyang/bck/zimablade/svgm/diablo2resurrected"
 
 # Log configuration
 readonly LOG_DIR="/mnt/d/gaming/scr/logs"
-readonly LOG_FILE="${LOG_DIR}/$(date +%Y.%m.%d.%H.%M.%S)_sync_SacredGold.log"
+readonly LOG_FILE="${LOG_DIR}/$(date +%Y.%m.%d.%H.%M.%S)_sync_d2r.log"
 
 # Backup configuration
 readonly BACKUP_DIR="${LOCAL_SAVE_PATH}/backups"
@@ -54,51 +54,17 @@ readonly RSYNC_CMD="rsync"
 readonly RSYNC_OPTS="--log-file=${LOG_FILE}" 
 readonly RSYNC_FLAGS="-avhiPm${DRY_RUN:+n}"  # Adds 'n' if DRY_RUN is true
 
-# Skip list for files that should not be synced (farming zones, etc.)
-readonly SKIP_PATTERNS=("*coop*" "*Coop*" "*azzerata*" "*Azzerata*" "*AZZERATA*")
+# Skip list for files that should not be synced
+readonly SKIP_PATTERNS=("Settings.json")
 
-# Character mappings for .pax files
-declare -A PAX_CHARACTERS=(
-    ["Hero00.pax"]="Gladiator"
-    ["Hero01.pax"]="Seraphim"
-    ["Hero02.pax"]="Demon"
-    ["Hero03.pax"]="Dwarf"
-    ["Hero04.pax"]="Wood Elf"
-    ["Hero05.pax"]="Battle Mage"
-    ["hero06.pax"]="Dark Elf"
-    ["hero07.pax"]="Vampiress"
-)
-
-# Placeholder mappings for .PAK files (user can customize these)
-declare -A PAK_CHARACTERS=(
-    ["GAME00.PAK"]="Quicksave"
-    ["GAME01.PAK"]="Save Slot 1 - [Daerek Demon Farm Coop]"
-    ["GAME02.PAK"]="Save Slot 2 - [Maegalcarwen Wood Elf Coop]"
-    ["GAME03.PAK"]="Save Slot 3 - [Ido Dwarf Ancaria]"
-    ["GAME04.PAK"]="Save Slot 4 - [Elizabeth Drake Vampiress Ancaria Gold]"
-    ["GAME05.PAK"]="Save Slot 5 - [Spartaco Gladiator Ancaria]"
-    ["GAME09.PAK"]="Save Slot 6 - [coop EDO]"
-    ["GAME06.PAK"]="Save Slot 7 - [Serafina Seraphim Ancaria Coop]"
-    ["GAME08.PAK"]="Save Slot 8 - [coop con Fede Serafino/Mago]"
-    ["GAME09.PAK"]="Save Slot 9 - [Underworld V e S]"
-    ["GAME07.PAK"]="Save Slot 10 - [Laurelinad Dark Elf Ancaria]"
-    ["GAME11.PAK"]="Save Slot 11 - [Centro della Regione del Nord - Azzerata]"
-    ["GAME12.PAK"]="Save Slot 12 - [Nord Estreno - Azzerata]"
-    ["GAME13.PAK"]="Save Slot 13 - [Regione dei Deserti - Azzerata]"
-    ["GAME14.PAK"]="Save Slot 14 - [Regione del Sud - Azzerata]"
-    ["GAME15.PAK"]="Save Slot 15 - [Regione della Lava - Azzerata]"
-    ["GAME16.PAK"]="Save Slot 16 - [Regione delle Paludi - Azzerata]"
-    ["GAME17.PAK"]="Save Slot 17 - [Shaddar Nur - Azzerata]"
-    ["GAME18.PAK"]="Save Slot 18 - [Underworld Inferiore - Azzerata]"
-    ["GAME19.PAK"]="Save Slot 19 - [Underworld Superiore - Azzerata]"
-    ["GAME20.PAK"]="Save Slot 20 - [Bronzo Mascarell]"
-    ["GAME21.PAK"]="Save Slot 21 - [Sennar Battle Mage Ancaria]"
-    ["GAME22.PAK"]="Save Slot 22 - [Underworld Anducar]"
-    ["GAME23.PAK"]="Save Slot 23 - [Underworld Anducar Lever Fix]"
-    ["GAME24.PAK"]="Save Slot 24 - [Coop Nick]"
-    ["GAME25.PAK"]="Save Slot 25 - [regione dei deserti azzerata 25]"
-    ["GAME26.PAK"]="Save Slot 26 - [Unknown Save]"
-    ["GAME27.PAK"]="Save Slot 27 - Lucrezia Vampiress Ancaria Silver"
+# File type descriptions for logging
+declare -A FILE_DESCRIPTIONS=(
+    [".d2s"]="Character Save Data"
+    [".ctl"]="Character Control File"
+    [".ma0"]="Character Map Data"
+    [".key"]="Character Key Bindings"
+    [".map"]="Character Map Info"
+    [".d2i"]="Shared Stash Data"
 )
 
 # ==============================================
@@ -141,21 +107,21 @@ error_exit() {
 # Clean up old log files (120 days retention)
 cleanup_old_logs() {
   log_info "Checking for old log files (120+ days) in ${LOG_DIR}"
-  local oldest_log=$(find "${LOG_DIR}" -name "*_sync_SacredGold.log" -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | head -1 | cut -d' ' -f2-)
+  local oldest_log=$(find "${LOG_DIR}" -name "*_sync_d2r.log" -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | head -1 | cut -d' ' -f2-)
   
   if [ -n "$oldest_log" ]; then
     local oldest_date=$(stat -c %y "$oldest_log" | cut -d' ' -f1)
     local cleanup_date=$(date -d "+120 days" '+%Y-%m-%d')
     log_info "Oldest log is from: ${oldest_date}, no logs to delete until: ${cleanup_date}"
     
-    local old_logs=$(find "${LOG_DIR}" -name "*_sync_SacredGold.log" -mtime +120 2>/dev/null)
+    local old_logs=$(find "${LOG_DIR}" -name "*_sync_d2r.log" -mtime +120 2>/dev/null)
     if [ -n "$old_logs" ]; then
       old_log_count=$(echo "$old_logs" | wc -l)
       log_info "Deleting ${old_log_count} old log files"
-      find "${LOG_DIR}" -name "*_sync_SacredGold.log" -mtime +120 -delete 2>/dev/null
+      find "${LOG_DIR}" -name "*_sync_d2r.log" -mtime +120 -delete 2>/dev/null
     fi
   else
-    log_info "No existing Sacred Gold log files found"
+    log_info "No existing D2R log files found"
   fi
 }
 
@@ -171,11 +137,11 @@ check_remote_connectivity() {
   if ! ping -c 1 "${REMOTE_IP}" &> /dev/null; then
     log_error "Cannot ping ${REMOTE_HOST} at ${REMOTE_IP}"
     cat << "EOF"
- _  _    ___  _  _   
-| || |  / _ \| || |  
-| || |_| | | | || |_ 
-|__   _| |_| |__   _|
-   |_|  \___/   |_|  
+ _____      _ _          _   _ 
+|  ___|___ (_) | ___  __| | | |
+| |_ / _` || | |/ _ \/ _` | | |
+|  _| (_| || | |  __/ (_| | |_|
+|_|  \__,_||_|_|\___|\__,_| (_)
 EOF
     return 1
   fi
@@ -194,12 +160,12 @@ EOF
   
   log_info "Connection to ${REMOTE_HOST} successful"
   cat << "EOF"
- _____                         _   _ 
-/ ____| __ _  ___ _ __ ___  __| | | |
-\___ \ / _` |/ __| '__/ _ \/ _` | | |
- ___) | (_| | (__| | |  __/ (_| | |_|
-|____/ \__,_|\___|_|  \___|\__,_| (_)
-                                          
+ ____  ____  ____    ____                        _ 
+|  _ \|___ \|  _ \  / ___| _   _ _ __   ___ _ __| |
+| | | | __) | |_) | \___ \| | | | '_ \ / __| '__| |
+| |_| |/ __/|  _ <   ___) | |_| | | | | (__| |  |_|
+|____/|_____|_| \_\ |____/ \__, |_| |_|\___|_|  (_)
+                           |___/                   
 EOF
   return 0
 }
@@ -238,16 +204,25 @@ ensure_directory_exists() {
   return 0
 }
 
-# Get character description for a file
-get_character_description() {
+# Get file description based on extension
+get_file_description() {
   local filename="$1"
+  local extension="${filename##*.}"
+  local basename="${filename%.*}"
   
-  if [[ "${filename}" == *.pax ]]; then
-    echo "${PAX_CHARACTERS[$filename]:-Unknown Character}"
-  elif [[ "${filename}" == *.PAK ]]; then
-    echo "${PAK_CHARACTERS[$filename]:-Unknown Save}"
+  # Handle special cases
+  if [[ "$filename" == "SharedStash"* ]]; then
+    if [[ "$filename" == *"SoftCore"* ]]; then
+      echo "Shared Stash (Softcore)"
+    elif [[ "$filename" == *"HardCore"* ]]; then
+      echo "Shared Stash (Hardcore)"
+    else
+      echo "Shared Stash"
+    fi
+  elif [[ -n "${FILE_DESCRIPTIONS[.${extension}]}" ]]; then
+    echo "${basename} - ${FILE_DESCRIPTIONS[.${extension}]}"
   else
-    echo "Unknown File Type"
+    echo "${filename} - Unknown File Type"
   fi
 }
 
@@ -295,12 +270,12 @@ get_file_size() {
   fi
 }
 
+# Check if file should be skipped
 should_skip_file() {
   local filename="$1"
-  local description=$(get_character_description "$filename")
   
   for pattern in "${SKIP_PATTERNS[@]}"; do
-    if [[ "$description" == $pattern ]]; then
+    if [[ "$filename" == $pattern ]]; then
       return 0  # Skip this file
     fi
   done
@@ -312,13 +287,13 @@ granular_file_sync() {
   local local_file="$1"
   local remote_file="$2"
   local filename=$(basename "$local_file")
-  local char_desc=$(get_character_description "$filename")
+  local file_desc=$(get_file_description "$filename")
   
-  log_info "===== Analyzing ${filename} (${char_desc}) ====="
+  log_info "===== Analyzing ${filename} (${file_desc}) ====="
   
   if should_skip_file "$filename"; then
-  log_info "${filename}: Skipping (matches skip pattern) - ${char_desc}"
-  return 0
+    log_info "${filename}: Skipping (matches skip pattern) - ${file_desc}"
+    return 0
   fi
 
   # Check if files exist
@@ -377,22 +352,22 @@ granular_file_sync() {
   fi
 }
 
-# Sync all Sacred Gold save files granularly
-sync_sacred_gold_saves() {
-  log_info "===== Starting granular Sacred Gold save sync ====="
+# Sync all Diablo II Resurrected save files granularly
+sync_d2r_saves() {
+  log_info "===== Starting granular Diablo II Resurrected save sync ====="
   
   # Get list of all save files in local directory
   local all_files=()
   
-  # Add existing local files
+  # Add existing local files (all files except directories)
   if [ -d "$LOCAL_SAVE_PATH" ]; then
     while IFS= read -r -d '' file; do
       all_files+=("$(basename "$file")")
-    done < <(find "$LOCAL_SAVE_PATH" -maxdepth 1 \( -name "*.PAK" -o -name "*.pax" \) -type f -print0 2>/dev/null || true)
+    done < <(find "$LOCAL_SAVE_PATH" -maxdepth 1 -type f -print0 2>/dev/null || true)
   fi
   
   # Add existing remote files
-  local remote_files=$(ssh "${REMOTE_HOST}" "find '${REMOTE_SAVE_PATH}' -maxdepth 1 \\( -name '*.PAK' -o -name '*.pax' \\) -type f -printf '%f\\n' 2>/dev/null || true")
+  local remote_files=$(ssh "${REMOTE_HOST}" "find '${REMOTE_SAVE_PATH}' -maxdepth 1 -type f -printf '%f\\n' 2>/dev/null || true")
   if [ -n "$remote_files" ]; then
     while IFS= read -r file; do
       # Only add if not already in array
@@ -444,9 +419,9 @@ main() {
   ensure_directory_exists "${BACKUP_DIR}" "false" || error_exit "Failed to verify or create backup directory"
   
   # Perform granular sync
-  sync_sacred_gold_saves
+  sync_d2r_saves
   
-  log_info "==== Sacred Gold sync completed successfully ===="
+  log_info "==== Diablo II Resurrected sync completed successfully ===="
   if [ "$DRY_RUN" = true ]; then
     log_info "REMINDER: Script ran in DRY-RUN mode - no files were actually modified"
   fi
@@ -454,6 +429,3 @@ main() {
 
 # Run the main function
 main
-
-# Note: To customize character names in PAK files, edit the PAK_CHARACTERS array above
-# Example: Change ["GAME05.PAK"]="Save Slot 5 - [Character Name]" to ["GAME05.PAK"]="Save Slot 5 - Thorek the Dwarf"

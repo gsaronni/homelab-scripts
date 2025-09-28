@@ -1,0 +1,94 @@
+{
+  "games": {
+    "Elden Ring": {
+      "platforms": {
+        "Steam": {
+          "save_path": "$wBlade_uR/EldenRing/76561198007681953/",
+          "remote_folder": "eldenRingSteam",
+          "folder_names": ["ELDEN RING", "EldenRing"]
+        }
+      }
+    },
+    "Baldur's Gate 3": {
+      "platforms": {
+        "GOG": {
+          "save_path": "$wBlade_uL/Larian Studios/Baldur's Gate 3/PlayerProfiles/Public/Savegames/Story/",
+          "remote_folder": "baldursGate3GOG",
+          "folder_names": ["Baldurs Gate 3", "Baldur's Gate 3"]
+        }
+      }
+    },
+    "Dark Souls III": {
+      "platforms": {
+        "Steam": {
+          "save_path": "$wBlade_uR/DarkSoulsIII/0110000102d383a1/",
+          "remote_folder": "darkSouls3Steam",
+          "folder_names": ["DARK SOULS III", "DarkSoulsIII"]
+        }
+      }
+    },
+    "High on Life": {
+      "platforms": {
+        "Steam": {
+          "save_path": "$wBlade_uL/Oregon/Saved/SaveGames/",
+          "remote_folder": "highOnLifeSteam",
+          "folder_names": ["High On Life"]
+        }
+      }
+    },
+    "State of Decay 2": {
+      "platforms": {
+        "Steam": {
+          "save_path": "$wBlade_uL/StateOfDecay2/Saved/SaveGames/",
+          "remote_folder": "stateOfDecay2Steam",
+          "folder_names": ["State of Decay 2"]
+        }
+      }
+    },
+    "Days Gone": {
+      "platforms": {
+        "Steam": {
+          "save_path": "$wBlade_uL/BendGame/Saved/76561198007681953/SaveGames/",
+          "remote_folder": "daysGoneSteam",
+          "folder_names": ["Days Gone"]
+        }
+      }
+    },
+    "The Callisto Protocol": {
+      "platforms": {
+        "Steam": {
+          "save_path": "$wBlade_uL/CallistoProtocol/Saved/SaveGames/",
+          "remote_folder": "callistoSteam",
+          "folder_names": ["The Callisto Protocol"]
+        }
+      }
+    },
+    "Dark Souls Remastered": {
+      "platforms": {
+        "Steam": {
+          "save_path": "$wBlade_d/NBGI/DARK SOULS REMASTERED/",
+          "remote_folder": "darkSoulsRemasteredSteam",
+          "folder_names": ["DARK SOULS REMASTERED"]
+        }
+      }
+    },
+    "Control": {    
+      "platforms": {
+        "GOG": {
+          "save_path": "$wBlade_uL/Remedy/Control/Default-Epic-User/",
+          "remote_folder": "controlGOG",
+          "folder_names": ["Control"]
+        }
+      }
+    },
+    "Cuphead": {
+      "platforms": {
+        "GOG": {
+          "save_path": "$wBlade_uR/Cuphead/",
+          "remote_folder": "cupheadGOG", 
+          "folder_names": ["Cuphead"]
+        }
+      }
+    }
+  }
+}
