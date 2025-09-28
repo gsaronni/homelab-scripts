@@ -1,12 +1,29 @@
 #!/bin/bash
 # BG3 Save Game Sync Script
-# Version: 3.2
+# Version: 3.3
 # Added log retention
+# Added backup copies
 # Date: 20250421
 # Description: Synchronizes Baldur's Gate 3 save games between local and remote servers
 
 # Set strict error handling
 set -euo pipefail
+
+# Parse command line arguments for dry run mode
+DRY_RUN=false  # Default to live mode
+for arg in "$@"; do
+  case $arg in
+    -n|--dry)
+      DRY_RUN=true
+      ;;
+    *)
+      echo "Usage: $0 [-n|--dry]"
+      echo "  -n, --dry: Run in dry-run mode"
+      echo "  (default: live mode - performs actual sync operations)"
+      exit 1
+      ;;
+  esac
+done
 
 # ==============================================
 # CONFIGURATION
@@ -14,7 +31,7 @@ set -euo pipefail
 
 # Script metadata
 readonly SCRIPT_NAME="$(basename "$0")"
-readonly SCRIPT_VERSION="v3.2"
+readonly SCRIPT_VERSION="v3.3"
 readonly SCRIPT_DATE="20250421"
 
 # Remote server configuration
@@ -42,7 +59,7 @@ readonly LOG_FILE="${LOG_DIR}/$(date +%Y.%m.%d.%H.%M.%S)_sync_BG3Lu_${DETECTED_U
 # Rsync configuration
 readonly RSYNC_CMD="rsync"
 readonly RSYNC_OPTS="--delete --log-file=${LOG_FILE}" 
-readonly RSYNC_FLAGS="-avhiPm"  # Note: includes -n for dry-run mode
+readonly RSYNC_FLAGS="-avhiPm$([[ "$DRY_RUN" == "true" ]] && echo "n")"
 
 # ==============================================
 # LOGGING FUNCTIONS
@@ -177,6 +194,50 @@ ensure_directory_exists() {
   return 0
 }
 
+# Create backup of save files using simple copy
+create_backup() {
+  if [ "$DRY_RUN" = true ]; then
+    log_info "Dry-run mode: Skipping backup creation for ${1}"
+    return 0
+  fi
+  
+  local source_path="$1"
+  local backup_name="$2"
+  local timestamp=$(date '+%Y%m%d.%H%M%S')
+  local backup_base_dir="/mnt/c/Users/${DETECTED_USER}/Documents/BG3_Backups"
+  local backup_dir="${backup_base_dir}/${backup_name}"
+  local backup_folder="${backup_dir}/backup_${timestamp}"
+  
+  # Only create backup if source has files
+  if [ ! -d "$source_path" ] || [ "$(find "$source_path" -type f 2>/dev/null | wc -l)" -eq 0 ]; then
+    log_info "No files to backup in ${source_path}"
+    return 0
+  fi
+  
+  mkdir -p "$backup_dir"
+  
+  log_info "Creating backup: ${backup_folder}"
+  if cp -r "$source_path" "$backup_folder" 2>/dev/null; then
+    log_info "Backup created successfully: ${backup_folder}"
+  else
+    log_warning "Failed to create backup of ${source_path}"
+    return 1
+  fi
+  
+  # Clean up old backups (keep last 3)
+  local retention=3
+  local backups=($(find "$backup_dir" -maxdepth 1 -type d -name "backup_*" -printf '%T@ %p\n' | sort -n | cut -d' ' -f2-))
+  
+  if [ ${#backups[@]} -gt $retention ]; then
+    local to_delete=$((${#backups[@]} - retention))
+    log_info "Cleaning up ${to_delete} old backups (keeping last ${retention})"
+    for ((i=0; i<to_delete; i++)); do
+      rm -rf "${backups[$i]}"
+      log_info "Removed old backup: $(basename "${backups[$i]}")"
+    done
+  fi
+}
+
 # Compare timestamps and sync in the appropriate direction
 compare_and_sync() {
   local local_dir="$1"
@@ -197,10 +258,12 @@ compare_and_sync() {
   # Handle empty directory cases
   if [ "${local_file_count}" -eq 0 ] && [ "${remote_file_count}" -gt 0 ]; then
     log_info "Local ${dir_name} is empty but remote has files, syncing from remote"
+    create_backup "${local_dir}" "${dir_name}_local"
     ${RSYNC_CMD} ${RSYNC_FLAGS} "${REMOTE_HOST}:${remote_dir%/}/" "${local_dir}" ${RSYNC_OPTS}
     return
   elif [ "${local_file_count}" -gt 0 ] && [ "${remote_file_count}" -eq 0 ]; then
     log_info "Remote ${dir_name} is empty but local has files, syncing from local"
+    create_backup "${local_dir}" "${dir_name}_local"
     ${RSYNC_CMD} ${RSYNC_FLAGS} "${local_dir%/}/" "${REMOTE_HOST}:${remote_dir}" ${RSYNC_OPTS}
     return
   elif [ "${local_file_count}" -eq 0 ] && [ "${remote_file_count}" -eq 0 ]; then
@@ -240,9 +303,11 @@ compare_and_sync() {
   # Compare and sync based on the most recent file timestamps
   if [ "${local_time}" -gt "${remote_time}" ]; then
     log_info "Local ${dir_name} files more recent, syncing to remote"
+    create_backup "${local_dir}" "${dir_name}_local"
     ${RSYNC_CMD} ${RSYNC_FLAGS} "${local_dir%/}/" "${REMOTE_HOST}:${remote_dir}" ${RSYNC_OPTS}
   elif [ "${local_time}" -lt "${remote_time}" ]; then
     log_info "Remote ${dir_name} files more recent, syncing to local"
+    create_backup "${local_dir}" "${dir_name}_local"
     ${RSYNC_CMD} ${RSYNC_FLAGS} "${REMOTE_HOST}:${remote_dir%/}/" "${local_dir}" ${RSYNC_OPTS}
   else
     log_info "Both ${dir_name} directories have files with the same timestamps, nothing to sync"
@@ -287,6 +352,13 @@ EOF
   
   # Ensure full path directories exist (now handled in compare_and_sync)
   
+  # Run mode indicator
+  if [ "$DRY_RUN" = true ]; then
+    log_info "*** RUNNING IN DRY-RUN MODE - NO CHANGES WILL BE MADE ***"
+  else
+    log_info "*** LIVE MODE - CHANGES WILL BE APPLIED ***"
+  fi
+
   # Sync saves
   log_info "===== Synchronizing saves ====="
   compare_and_sync "${LOCAL_BASE_PATH}/${SAVES_PATH}" "${REMOTE_BASE_PATH}/${SAVES_PATH}" "saves"
@@ -296,6 +368,9 @@ EOF
   compare_and_sync "${LOCAL_BASE_PATH}/${MODS_PATH}" "${REMOTE_BASE_PATH}/${MODS_PATH}" "mods"
   
   log_info "==== Sync completed successfully ===="
+  if [ "$DRY_RUN" = true ]; then
+    log_info "REMINDER: Script ran in DRY-RUN mode - no files were actually modified"
+  fi
 }
 
 # Run the main function
