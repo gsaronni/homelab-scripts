@@ -194,7 +194,7 @@ ensure_directory_exists() {
   return 0
 }
 
-# Create backup of save files using simple copy
+# Create backup of save files using weekly retention
 create_backup() {
   if [ "$DRY_RUN" = true ]; then
     log_info "Dry-run mode: Skipping backup creation for ${1}"
@@ -203,10 +203,10 @@ create_backup() {
   
   local source_path="$1"
   local backup_name="$2"
-  local timestamp=$(date '+%Y%m%d.%H%M%S')
+  local current_week=$(date '+%Y-W%U')  # Year-Week format (e.g., 2025-W39)
   local backup_base_dir="/mnt/c/Users/${DETECTED_USER}/Documents/BG3_Backups"
   local backup_dir="${backup_base_dir}/${backup_name}"
-  local backup_folder="${backup_dir}/backup_${timestamp}"
+  local backup_folder="${backup_dir}/backup_${current_week}"
   
   # Only create backup if source has files
   if [ ! -d "$source_path" ] || [ "$(find "$source_path" -type f 2>/dev/null | wc -l)" -eq 0 ]; then
@@ -214,26 +214,32 @@ create_backup() {
     return 0
   fi
   
+  # Check if backup for this week already exists
+  if [ -d "$backup_folder" ]; then
+    log_info "Backup for week ${current_week} already exists, skipping: ${backup_folder}"
+    return 0
+  fi
+  
   mkdir -p "$backup_dir"
   
-  log_info "Creating backup: ${backup_folder}"
+  log_info "Creating weekly backup: ${backup_folder}"
   if cp -r "$source_path" "$backup_folder" 2>/dev/null; then
-    log_info "Backup created successfully: ${backup_folder}"
+    log_info "Weekly backup created successfully: ${backup_folder}"
   else
-    log_warning "Failed to create backup of ${source_path}"
+    log_warning "Failed to create weekly backup of ${source_path}"
     return 1
   fi
   
-  # Clean up old backups (keep last 3)
+  # Clean up old backups (keep last 3 weeks)
   local retention=3
-  local backups=($(find "$backup_dir" -maxdepth 1 -type d -name "backup_*" -printf '%T@ %p\n' | sort -n | cut -d' ' -f2-))
+  local backups=($(find "$backup_dir" -maxdepth 1 -type d -name "backup_*" -printf '%f\n' | sort))
   
   if [ ${#backups[@]} -gt $retention ]; then
     local to_delete=$((${#backups[@]} - retention))
-    log_info "Cleaning up ${to_delete} old backups (keeping last ${retention})"
+    log_info "Cleaning up ${to_delete} old weekly backups (keeping last ${retention} weeks)"
     for ((i=0; i<to_delete; i++)); do
-      rm -rf "${backups[$i]}"
-      log_info "Removed old backup: $(basename "${backups[$i]}")"
+      rm -rf "${backup_dir}/${backups[$i]}"
+      log_info "Removed old weekly backup: ${backups[$i]}"
     done
   fi
 }
