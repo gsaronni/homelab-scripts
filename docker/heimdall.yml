@@ -1,0 +1,25 @@
+---
+services:
+  heimdall:
+    image: lscr.io/linuxserver/heimdall:latest
+    container_name: heimdall
+    environment:
+      - PUID=982
+      - PGID=982
+      - TZ=Europe/London
+    volumes:
+      - /mnt/lilowl/vlm/heimdall_data:/config
+    ports:
+      - 8084:443
+    restart: unless-stopped
+  homer:
+    image: b4bz/homer:latest
+    container_name: homer
+    environment:
+      - UID=982
+      - GID=982
+    volumes:
+      - /mnt/lilowl/vlm/homer:/www/assets
+    ports:
+      - "8082:8080"  # Safe internal port
+    restart: unless-stopped

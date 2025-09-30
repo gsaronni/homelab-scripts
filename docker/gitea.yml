@@ -1,0 +1,22 @@
+---
+networks:
+  gitea:
+    external: false
+
+services:
+  server:
+    image: gitea/gitea:latest
+    container_name: gitea
+    restart: unless-stopped
+    environment:
+      - USER_UID=983
+      - USER_GID=983
+    networks:
+      - gitea
+    volumes:
+      - /mnt/lilowl/vlm/gitea_data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "3000:3000"
+      - "222:22"
